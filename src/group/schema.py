@@ -1,4 +1,5 @@
 import graphene
+from graphene_django import DjangoConnectionField
 from graphene_django.types import DjangoObjectType
 
 from .models import Organizer, UserGroup
@@ -13,19 +14,10 @@ class UserGroupType(DjangoObjectType):
 class OrganizerType(DjangoObjectType):
     class Meta:
         model = Organizer
-        fields = ('name','slack_id','user')
+        fields = ('name', 'slack_id', 'user')
 
 
 # GraphQL Relay
-class UserGroupNode(DjangoObjectType):
-    class Meta:
-        model = UserGroup
-        interfaces = (graphene.relay.Node,)
-
-
-class UserGroupConnection(graphene.relay.Connection):
-    class Meta:
-        node = UserGroupNode
 
 
 class OrganizerNode(DjangoObjectType):
@@ -34,9 +26,32 @@ class OrganizerNode(DjangoObjectType):
         interfaces = (graphene.relay.Node,)
 
 
+OrganizerConnectionField = DjangoConnectionField(
+    OrganizerNode,
+    description='운영자 목록',
+    enforce_first_or_last=True,
+    max_limit=20,
+)
+
+
 class OrganizerConnection(graphene.relay.Connection):
     class Meta:
         node = OrganizerNode
+
+
+class UserGroupNode(DjangoObjectType):
+    class Meta:
+        model = UserGroup
+        only_fields = ('name', 'meeting_cycle')
+        interfaces = (graphene.relay.Node,)
+
+    organizers = OrganizerConnectionField
+    orangizers_count = graphene.Field(graphene.Int, description="운영자수")
+
+
+class UserGroupConnection(graphene.relay.Connection):
+    class Meta:
+        node = UserGroupNode
 
 
 class Query(object):
@@ -52,7 +67,7 @@ class Query(object):
     def resolve_all_organizers(self, info, **kwargs):
         return Organizer.objects.all()
 
-    # GraphQL Relay
+    # Relay
     user_group = graphene.relay.Node.Field(UserGroupNode)
     user_groups = graphene.relay.ConnectionField(UserGroupConnection)
     organizer = graphene.relay.Node.Field(OrganizerNode)
